@@ -1,15 +1,14 @@
 # Tester l'import direct
-from app.welcome_agent import welcome_agent
-print('Agent name:', welcome_agent.name)
-print('Agent type:', type(welcome_agent))
+from app.information_desk_agent import information_desk_agent
+from app.customer_authentification_agent import customer_authentification_agent
 
-# Tester l'import depuis agent_config
-from app.agent_config import starting_agent
-print('Starting agent name:', starting_agent.name)
-print('Starting agent type:', type(starting_agent))
+print('Info agent name:', information_desk_agent.name)
+print('Auth agent name:', customer_authentification_agent.name)
 
+# Vérifier les handoffs
+print('Info agent handoffs:', [agent.name for agent in information_desk_agent.handoffs])
 
-# Tester l'import depuis agent_config
-from app.agent_config import customer_authentification_agent
-print('Customer authentication agent name:', customer_authentification_agent.name)
-print('Customer authentication agent type:', type(customer_authentification_agent))
+# Tester la fonction de transfert
+from app.information_desk_agent import transfer_to_customer_authentification_agent
+result = transfer_to_customer_authentification_agent()
+print('Transfer function result:', result)

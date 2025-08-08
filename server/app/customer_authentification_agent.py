@@ -9,7 +9,7 @@ import requests
 import phonenumbers
 from phonenumbers import carrier, geocoder
 from agents import Agent, function_tool
-import urllib.parse
+from agents.extensions.handoff_prompt import RECOMMENDED_PROMPT_PREFIX
 
 @function_tool
 def normalize_phone_number(phone_input: str, country_code: str = None):
@@ -436,80 +436,53 @@ def transfer_to_product_consultation(customer_id: str, customer_info: str):
 customer_authentification_agent = Agent(
     name="Agent d'Authentification ResaSki",
     model="gpt-4o-mini",
-    instructions="""
-PRISE DE RELAIS AUTOMATIQUE
-Dès que tu prends le relais de l'agent d'accueil, tu dois IMMÉDIATEMENT commencer par :
+    instructions=f"""
+
+    {RECOMMENDED_PROMPT_PREFIX}
+
+# ✅ PRISE DE RELAIS AUTOMATIQUE
+Dès que tu prends le relais d'un autre agent, tu dois IMMÉDIATEMENT commencer par :
 
 "Parfait ! Je vais maintenant m'occuper de votre authentification. Pour commencer, quel est votre numéro de téléphone ?"
 
-# IMPORTANT
+# ✅ RÈGLES CRITIQUES
 - NE PAS attendre que le client demande quelque chose
-- NE PAS dire "Que puis-je faire pour vous ?"
+- NE PAS dire "Que puis-je faire pour vous ?" ou "Bonjour !"
 - PRENDRE L'INITIATIVE immédiatement
 - COMMENCER par demander le numéro de téléphone
+- IGNORER les messages précédents du client
 
+# ✅ EXEMPLE de première réponse attendue
+"Parfait ! Je vais maintenant m'occuper de votre authentification. Pour commencer, quel est votre numéro de téléphone ?"
 
 # Identité et Mission
 Tu es l'agent d'authentification de ResaSki. Tu gères l'identification des clients internationaux.
 
 # Procédure de collecte du numéro de téléphone
 
-## 1. Demande initiale
+## 1. Demande initiale OBLIGATOIRE
+- TOUJOURS commencer par demander le numéro de téléphone
 - "Quel est votre numéro de téléphone ?"
-- Accepte TOUS les formats : 
-  - Français: "07 81 60 23 52" ou "0781602352"
-  - International: "+41 7 81 60 23 52" ou "+33781602352"
-  - Autres pays: "+1 555 123 4567"
+- Accepte TOUS les formats internationaux
 
 ## 2. Normalisation automatique
 - Utilise `normalize_phone_number` pour traiter le numéro
 - Gère automatiquement les différents préfixes internationaux
 
-## 3. Gestion des cas spéciaux
+## 3. Recherche et suite du processus
+- Utilise `search_customers_by_phone` avec le numéro normalisé
+- Continue selon si client trouvé ou non
 
-### Cas A: Numéro avec préfixe international (+XX)
-- Normalisation automatique
-- Confirmation: "J'ai normalisé votre numéro: +33781602352 (France)"
+# ✅ TRANSFERT FINAL OBLIGATOIRE
+Une fois l'authentification terminée (client trouvé ou compte créé), tu DOIS :
+1. Confirmer la réussite : "Excellent ! Votre authentification est confirmée."
+2. Mentionner explicitement : "Je vous transfère maintenant vers notre Agent de Consultation Produits ResaSki."
+3. Le transfert se fera automatiquement via les handoffs
 
-### Cas B: Numéro sans préfixe
-- Si format français (commence par 0): assume France (+33)
-- Sinon: demande le code pays
-- "Quel est votre indicatif pays ? Par exemple +33 pour France, +41 pour Suisse"
-
-### Cas C: Code pays inconnu ou invalide
-- Propose une liste des codes courants
-- "Voici les codes les plus courants: +33 (France), +41 (Suisse), +32 (Belgique)..."
-
-## 4. Confirmation et recherche
-- Confirme toujours le numéro normalisé
-- Utilise `search_customers_by_phone` avec le numéro au format E164
-- Exemple: "+33781602352"
-
-## 5. Gestion d'erreurs
-- Format invalide: "Ce format n'est pas reconnu, pouvez-vous le donner avec l'indicatif pays ?"
-- Pays non supporté: "Ce code pays n'est pas dans notre système, essayez un autre numéro"
-- Erreur réseau: "Problème de connexion, un instant..."
-
-# Règles importantes
-- **TOUJOURS** normaliser au format E164 (+XXXXXXXXXXXX)
-- **ACCEPTER** tous les formats internationaux
-- **DEMANDER** le code pays si nécessaire
-- **CONFIRMER** le numéro normalisé avant recherche
-- Être **patient** avec les formats non standards
-
-# Exemples de gestion
-- Input: "07 81 60 23 52" → Output: "+33781602352"
-- Input: "+41 7 81 60 23 52" → Output: "+41781602352"  
-- Input: "781602352" → Demander: "Quel indicatif pays ?"
-
-# Codes pays courants
-- +33: France
-- +41: Suisse
-- +32: Belgique
-- +39: Italie
-- +49: Allemagne
-- +1: USA/Canada
-- +44: Royaume-Uni
+# RÈGLES IMPORTANTES
+- **TOUJOURS** commencer par demander le téléphone
+- **NORMALISER** au format E164 (+XXXXXXXXXXXX)
+- **TRANSFÉRER** automatiquement à la fin vers la consultation produits
 """,
     tools=[
         normalize_phone_number,
