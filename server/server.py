@@ -49,9 +49,14 @@ class Workflow(VoiceWorkflowBase):
         self.connection = connection
 
     async def run(self, input_text: str) -> AsyncIterator[str]:
+        print(f"🔄 Workflow.run called with input: '{input_text}'")
+        
         conversation_history, latest_agent = await self.connection.show_user_input(
             input_text
         )
+        
+        print(f"🤖 Current agent: {latest_agent.name}")
+        # print(f"📝 Conversation history length: {len(conversation_history)}")
 
         output = Runner.run_streamed(
             latest_agent,
@@ -59,6 +64,7 @@ class Workflow(VoiceWorkflowBase):
         )
 
         async for event in output.stream_events():
+            # print(f"📤 Event type: {type(event).__name__}")
             await self.connection.handle_new_item(event)
 
             if is_text_output(event):
@@ -127,4 +133,4 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=4000, reload=True)

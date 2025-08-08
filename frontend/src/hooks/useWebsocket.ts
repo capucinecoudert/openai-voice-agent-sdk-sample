@@ -4,7 +4,7 @@ import { Message } from "@/lib/types";
 import { arrayBufferToBase64, base64ToArrayBuffer } from "@/lib/utils";
 
 export function useWebsocket({
-  url,
+  url = "ws://localhost:4000/ws", // ✅ Changé de 8000 vers 4000
   onNewAudio,
   onAudioDone,
 }: {
@@ -54,6 +54,12 @@ export function useWebsocket({
         if (typeof onAudioDone === "function") {
           onAudioDone();
         }
+      } else if (data.type === "agent.transfer") {
+        // Gestion des transferts d'agents
+        console.log("Agent transfer:", data);
+        if (data.agent_name) {
+          setAgentName(data.agent_name);
+        }
       }
     });
 
@@ -66,37 +72,54 @@ export function useWebsocket({
     };
   }, []);
 
-  function sendTextMessage(message: string) {
-    setIsLoading(true);
-    const newHistory = [
-      ...history,
-      {
-        role: "user",
-        content: message,
-        type: "message",
-      } as Message,
-    ];
-    setHistory(newHistory);
-    websocket.current?.send(
-      JSON.stringify({
-        type: "history.update",
-        inputs: newHistory,
-      })
-    );
-  }
+  const sendTextMessage = (message: string) => {
+    // Vérifier que le WebSocket est ouvert avant d'envoyer
+    if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+      websocket.current.send(
+        JSON.stringify({
+          type: "history.update",
+          inputs: [
+            ...history,
+            {
+              role: "user",
+              content: message,
+              type: "message",
+            } as Message,
+          ],
+        })
+      );
+    } else {
+      console.warn("Cannot send message: WebSocket not ready", {
+        readyState: websocket.current?.readyState,
+        states: {
+          0: "CONNECTING",
+          1: "OPEN",
+          2: "CLOSING",
+          3: "CLOSED",
+        },
+      });
+      // Optionnel : tenter de reconnecter
+      if (websocket.current?.readyState === WebSocket.CLOSED) {
+        setIsLoading(true);
+        // Le useEffect se chargera de reconnecter
+      }
+    }
+  };
 
-  function resetHistory() {
-    setHistory([]);
-    setIsLoading(false);
-    setAgentName(null);
-    websocket.current?.send(
-      JSON.stringify({
-        type: "history.update",
-        inputs: [],
-        reset_agent: true,
-      })
-    );
-  }
+  const resetHistory = () => {
+    // Même vérification pour reset
+    if (websocket.current && websocket.current.readyState === WebSocket.OPEN) {
+      websocket.current.send(
+        JSON.stringify({
+          type: "history.update",
+          inputs: [],
+          reset_agent: true,
+        })
+      );
+    } else {
+      console.warn("Cannot reset: WebSocket not ready", websocket.current?.readyState);
+    }
+  };
   function sendAudioMessage(audio: Int16Array<ArrayBuffer>) {
     if (!websocket.current) {
       throw new Error("Websocket not connected");
